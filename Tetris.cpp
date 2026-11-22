@@ -1,7 +1,8 @@
-
 #include <iostream>
 #include <conio.h>
 #include <cstring>   // SV4: memcpy
+#include <cstdlib>   // FIX: rand, srand, system
+#include <ctime>     // FIX: time
 
 using namespace std;
 #define H 20
@@ -9,7 +10,8 @@ using namespace std;
 char board[H][W] = {};
 
 int x, y, b;
-char cur[4][4];      // SV4: khối đang rơi (bản sao có thể xoay)
+char cur[4][4];      // SV4: bản sao của khối đang rơi, dùng để xoay
+int baseBlocks[7] = {0, 2, 11, 12, 13, 14, 15};   // SV4: chọn đủ 7 loại khối I, O, T, S, Z, J, L
 char blocks[][4][4] ={
         {{' ','I',' ',' '},
          {' ','I',' ',' '},
@@ -79,10 +81,10 @@ char blocks[][4][4] ={
 bool canMove(int dx, int dy){
     for (int i = 0; i < 4; i++ )
         for (int j = 0; j < 4; j++ )
-            if (cur[i][j] != ' ') {              // SV4: dùng cur
+            if (cur[i][j] != ' ') {                  // SV4: cur thay cho blocks[b]
                 int xt = x + j + dx;
                 int yt = y + i + dy;
-                if (xt < 1 || xt >= W-1 || yt < 0 || yt >= H-1 ) return false;
+                if (xt < 1 || xt >= W-1 || yt >= H-1 ) return false;
                 if (board[yt][xt] != ' ') return false;
             }
     return true;
@@ -90,33 +92,19 @@ bool canMove(int dx, int dy){
 void block2Board(){
     for (int i = 0; i < 4; i++ )
         for (int j = 0; j < 4; j++ )
-            if (cur[i][j] != ' ')                // SV4: dùng cur
+            if (cur[i][j] != ' ')                    // SV4
                 board[y+i][x+j] = cur[i][j];
 }
 void boardDelBlock(){
     for (int i = 0; i < 4; i++ )
         for (int j = 0; j < 4; j++ )
-            if (cur[i][j] != ' ')                // SV4: dùng cur
+            if (cur[i][j] != ' ')                    // SV4
                 board[y+i][x+j] = ' ';
 }
 
-// SV4: sinh khối mới, chép từ blocks[b] sang cur.
-// Chọn đủ 7 loại khối (I, O, T, S, Z, J, L).
-// y = 1 vì hàng 0 là viền '#'. Trả về false nếu vị trí sinh ra đã bị chiếm (Game Over).
-bool spawn(){
-    const int baseBlocks[7] = {0, 2, 11, 12, 13, 14, 15};
-
-    x = 5;
-    y = 1;
-    b = baseBlocks[rand() % 7];
-
-    memcpy(cur, blocks[b], sizeof(cur));
-    return canMove(0, 0);
-}
-
-// SV4: xoay 90 độ theo chiều kim đồng hồ.
-// Gọi sau boardDelBlock() để khối không va chạm với chính nó.
-// Nếu vị trí xoay không hợp lệ (xuyên tường, đáy, khối cố định) thì giữ nguyên.
+// SV4: xoay khối 90 độ theo chiều kim đồng hồ.
+// Gọi sau boardDelBlock() nên khối không va chạm với chính nó.
+// Vị trí sau khi xoay chạm tường, đáy hoặc khối đã cố định thì giữ nguyên khối.
 void rotateBlock(){
     char t[4][4];
     for (int i = 0; i < 4; i++ )
@@ -133,6 +121,15 @@ void rotateBlock(){
             }
 
     memcpy(cur, t, sizeof(cur));
+}
+
+// SV4: khối mới sinh ra có chồng lên khối đã cố định không?
+// Bỏ qua hàng 0 vì đó là viền '#', nếu không khối I sẽ bị báo Game Over oan.
+bool spawnBlocked(){
+    for (int i = 0; i < 4; i++ )
+        for (int j = 0; j < 4; j++ )
+            if (cur[i][j] != ' ' && y+i > 0 && board[y+i][x+j] != ' ') return true;
+    return false;
 }
 
 void initBoard(){
@@ -156,6 +153,8 @@ void removeLine(){
             for (int ii = i ; ii > 0 ; ii--)
                 for (int jj = 0; jj < W; jj++)
                     board[ii][jj] = board[ii-1][jj];
+            for (int jj = 1; jj < W-1; jj++)         // FIX: hàng 1 phải trống, không lấy từ hàng viền 0
+                board[1][jj] = ' ';
             i++;
             draw();
             _sleep(200);
@@ -166,30 +165,28 @@ void removeLine(){
 int main()
 {
     srand(time(0));
+    x = 5; y = 0; b = baseBlocks[rand()%7];
+    memcpy(cur, blocks[b], sizeof(cur));             // SV4
     initBoard();
-    if (!spawn()) {                              // SV4: kiểm tra cả lần sinh khối đầu tiên
-        draw();
-        cout << "GAME OVER!" << endl;
-        return 0;
-    }
     while (1){
         boardDelBlock();
         if (kbhit()){
             char c = getch();
-            if ((c == 'a' || c == 'A') && canMove(-1,0)) x--;
-            if ((c == 'd' || c == 'D') && canMove( 1,0)) x++;
-            if ((c == 'x' || c == 'X') && canMove( 0,1)) y++;
-            if (c == 'w' || c == 'W') rotateBlock();   // SV4: phím W = xoay
-            if (c == 'q' || c == 'Q') break;
+            if (c == 'a' && canMove(-1,0)) x--;
+            if (c == 'd' && canMove( 1,0)) x++;
+            if (c == 'x' && canMove( 0,1)) y++;
+            if (c == 'w' || c == 'W') rotateBlock(); // SV4: phím W = xoay
+            if (c == 'q') break;
         }
         if (canMove(0,1)) y++;
         else{
             block2Board();
             removeLine();
-            if (!spawn()) {                      // SV4: vị trí sinh bị chiếm -> Game Over
+            x = 5; y = 0; b = baseBlocks[rand()%7];
+            memcpy(cur, blocks[b], sizeof(cur));     // SV4
+            if (spawnBlocked()) {                    // SV4: không còn chỗ sinh khối -> Game Over
                 draw();
-                cout << "GAME OVER! Nhan phim bat ky de thoat." << endl;
-                getch();
+                cout << "GAME OVER!" << endl;
                 break;
             }
         }
