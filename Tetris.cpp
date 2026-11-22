@@ -155,7 +155,8 @@ void draw() {
     cout << frame << flush;
 }
 
-void removeLine() {
+int removeLine() {
+    int cleared = 0;
     for (int i = H - 2; i > 0; i--) {
         bool full = true;
         for (int j = 1; j < W - 1; j++)
@@ -170,8 +171,10 @@ void removeLine() {
             for (int jj = 1; jj < W - 1; jj++)
                 board[1][jj] = ' ';
             i++;
+            cleared++;
         }
     }
+    return cleared;
 }
 
 int main()
@@ -209,7 +212,11 @@ int main()
             if (canMove(0, 1)) y++;
             else {
                 block2Board();
-                removeLine();
+                int lines = removeLine();                // SV5
+                if (lines > 0) {                         // SV5: xóa càng nhiều hàng càng nhanh
+                    speed -= 50 * lines;
+                    if (speed < 100) speed = 100;        // SV5: giới hạn tốc độ tối đa
+                }
                 x = 5; y = 0; b = baseBlocks[rand() % 7];
             }
             timer = 0;
@@ -221,4 +228,4 @@ int main()
         timer += 50;
     }
     return 0;
-}
+} 
