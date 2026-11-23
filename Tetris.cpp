@@ -217,8 +217,6 @@ void draw() {
 
     for (int i = 0; i < H; i++, cout << endl)
         for (int j = 0; j < W; j++) cout << board[i][j];
-
-    cout << "\nA: Trai | D: Phai | X: Xuong | W: Xoay | Q: Thoat\n";
 }
 
 void removeLine() {
@@ -288,4 +286,3 @@ int main() {
 
     return 0;
 }
-
