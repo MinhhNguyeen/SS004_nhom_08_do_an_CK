@@ -213,9 +213,9 @@ int main()
             else {
                 block2Board();
                 int lines = removeLine();                // SV5
-                if (lines > 0) {                         // SV5: xóa càng nhiều hàng càng nhanh
+                if (lines > 0 && speed > 150) {          // SV5: chỉ giảm khi có xóa hàng và chưa chạm tốc độ tối đa
                     speed -= 50 * lines;
-                    if (speed < 100) speed = 100;        // SV5: giới hạn tốc độ tối đa
+                    if (speed < 150) speed = 150;        // SV5: giới hạn tốc độ tối đa
                 }
                 x = 5; y = 0; b = baseBlocks[rand() % 7];
             }
