@@ -1,10 +1,8 @@
-
 #include <iostream>
 #include <conio.h>
 #include <cstring>
 #include <cstdlib>
 #include <ctime>
-#include <windows.h>
 
 using namespace std;
 
@@ -15,334 +13,227 @@ char board[H][W] = {};
 
 int x, y, b;
 
-char cur[4][4];
-
-int baseBlocks[7] = {0, 2, 11, 12, 13, 14, 15};
-
 char blocks[][4][4] = {
     {{' ','I',' ',' '},
      {' ','I',' ',' '},
      {' ','I',' ',' '},
      {' ','I',' ',' '}},
-
     {{' ','I',' ',' '},
      {' ','I',' ',' '},
      {' ','I',' ',' '},
      {' ','I',' ',' '}},
-
     {{' ',' ',' ',' '},
      {' ','O','O',' '},
      {' ','O','O',' '},
      {' ',' ',' ',' '}},
-
     {{' ',' ',' ',' '},
      {' ','O','O',' '},
      {' ','O','O',' '},
      {' ',' ',' ',' '}},
-
     {{' ',' ',' ',' '},
      {' ','O','O',' '},
      {' ','O','O',' '},
      {' ',' ',' ',' '}},
-
     {{' ',' ',' ',' '},
      {' ','O','O',' '},
      {' ','O','O',' '},
      {' ',' ',' ',' '}},
-
     {{' ',' ',' ',' '},
      {' ','O','O',' '},
      {' ','O','O',' '},
      {' ',' ',' ',' '}},
-
     {{' ',' ',' ',' '},
      {' ','O','O',' '},
      {' ','O','O',' '},
      {' ',' ',' ',' '}},
-
     {{' ',' ',' ',' '},
      {' ','O','O',' '},
      {' ','O','O',' '},
      {' ',' ',' ',' '}},
-
     {{' ',' ',' ',' '},
      {'I','I','I','I'},
      {' ',' ',' ',' '},
      {' ',' ',' ',' '}},
-
     {{' ',' ',' ',' '},
      {' ','O','O',' '},
      {' ','O','O',' '},
      {' ',' ',' ',' '}},
-
     {{' ',' ',' ',' '},
      {' ','T',' ',' '},
      {'T','T','T',' '},
      {' ',' ',' ',' '}},
-
     {{' ',' ',' ',' '},
      {' ','S','S',' '},
      {'S','S',' ',' '},
      {' ',' ',' ',' '}},
-
     {{' ',' ',' ',' '},
      {'Z','Z',' ',' '},
      {' ','Z','Z',' '},
      {' ',' ',' ',' '}},
-
     {{' ',' ',' ',' '},
      {'J',' ',' ',' '},
      {'J','J','J',' '},
      {' ',' ',' ',' '}},
-
     {{' ',' ',' ',' '},
      {' ',' ','L',' '},
      {'L','L','L',' '},
      {' ',' ',' ',' '}}
 };
 
-// Kiem tra kha nang di chuyen
+// ======================= PHAN BO SUNG CUA SV4 =======================
+
+// Cac vi tri dai dien cho 7 dang block khac nhau trong mang blocks.
+const int baseBlocks[7] = {0, 2, 11, 12, 13, 14, 15};
+
+// Luu hinh dang goc de moi block moi khong bi giu lai huong xoay truoc do.
+char blocksOrig[16][4][4];
+
 bool canMove(int dx, int dy) {
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            if (cur[i][j] != ' ') {
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            if (blocks[b][i][j] != ' ') {
                 int xt = x + j + dx;
                 int yt = y + i + dy;
-
-                if (xt < 1 || xt >= W - 1 ||
-                    yt < 0 || yt >= H - 1) {
-                    return false;
-                }
-
-                // Hang 0 la vung sinh khoi, khong kiem tra nhu o co dinh
-                if (yt > 0 && board[yt][xt] != ' ') {
-                    return false;
-                }
+                if (xt < 1 || xt >= W - 1 || yt >= H - 1) return false;
+                if (board[yt][xt] != ' ') return false;
             }
-        }
-    }
-
     return true;
 }
 
-// Dua khoi dang roi vao bang
 void block2Board() {
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            if (cur[i][j] != ' ' && y + i > 0) {
-                board[y + i][x + j] = cur[i][j];
-            }
-        }
-    }
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            if (blocks[b][i][j] != ' ')
+                board[y + i][x + j] = blocks[b][i][j];
 }
 
-// Xoa khoi dang roi khoi bang
 void boardDelBlock() {
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            if (cur[i][j] != ' ' && y + i > 0) {
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            if (blocks[b][i][j] != ' ')
                 board[y + i][x + j] = ' ';
-            }
-        }
-    }
 }
 
-// Xoay khoi 90 do theo chieu kim dong ho
-void rotateBlock() {
-    char t[4][4];
+// Khoi phuc hinh dang ban dau cua block duoc chon.
+void resetBlock(int id) {
+    memcpy(blocks[id], blocksOrig[id], sizeof(blocks[id]));
+}
+
+// Kiem tra block sau khi xoay co nam trong bien va khong cham block co dinh.
+bool canPlaceRotatedBlock(const char rotated[4][4]) {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            if (rotated[i][j] == ' ')
+                continue;
+
+            int xt = x + j;
+            int yt = y + i;
+
+            if (xt < 1 || xt >= W - 1 || yt < 0 || yt >= H - 1)
+                return false;
+
+            if (board[yt][xt] != ' ')
+                return false;
+        }
+    }
+    return true;
+}
+
+// Xoay block 90 do theo chieu kim dong ho.
+// Neu vi tri sau xoay khong hop le, giu nguyen block hien tai.
+bool rotateBlock() {
+    char rotated[4][4];
 
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
-            t[j][3 - i] = cur[i][j];
+            rotated[j][3 - i] = blocks[b][i][j];
         }
     }
 
-    // Kiem tra vi tri sau khi xoay
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            if (t[i][j] != ' ') {
-                int xt = x + j;
-                int yt = y + i;
+    if (!canPlaceRotatedBlock(rotated))
+        return false;
 
-                if (xt < 1 || xt >= W - 1 ||
-                    yt < 0 || yt >= H - 1) {
-                    return;
-                }
-
-                if (yt > 0 && board[yt][xt] != ' ') {
-                    return;
-                }
-            }
-        }
-    }
-
-    // Chi cap nhat khi vi tri xoay hop le
-    memcpy(cur, t, sizeof(cur));
+    memcpy(blocks[b], rotated, sizeof(rotated));
+    return true;
 }
 
-// Kiem tra khoi moi co bi trung khoi da co hay khong
-bool spawnBlocked() {
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            if (cur[i][j] != ' ' && y + i > 0) {
-                if (board[y + i][x + j] != ' ') {
-                    return true;
-                }
-            }
-        }
-    }
-
-    return false;
+// Sinh ngau nhien mot trong 7 dang block co ban.
+void spawnBlock() {
+    x = 5;
+    y = 0;
+    b = baseBlocks[rand() % 7];
+    resetBlock(b);
 }
 
-// Kiem tra khoi co con nam tren vung hien thi khi bi khoa khong
-bool pieceAboveTop() {
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            if (cur[i][j] != ' ' && y + i <= 0) {
-                return true;
-            }
-        }
-    }
+// ===================== KET THUC PHAN SV4 ============================
 
-    return false;
-}
-
-// Khoi tao bang
 void initBoard() {
-    for (int i = 0; i < H; i++) {
-        for (int j = 0; j < W; j++) {
-            if (i == 0 || i == H - 1 ||
-                j == 0 || j == W - 1) {
-                board[i][j] = '#';
-            }
-            else {
-                board[i][j] = ' ';
-            }
-        }
-    }
+    for (int i = 0; i < H; i++)
+        for (int j = 0; j < W; j++)
+            if (i == 0 || i == H - 1 || j == 0 || j == W - 1) board[i][j] = '#';
+            else board[i][j] = ' ';
 }
 
-// Hien thi bang
 void draw() {
     system("cls");
 
-    for (int i = 0; i < H; i++, cout << endl) {
-        for (int j = 0; j < W; j++) {
-            cout << board[i][j];
-        }
-    }
+    for (int i = 0; i < H; i++, cout << endl)
+        for (int j = 0; j < W; j++) cout << board[i][j];
+
 }
 
-// Xoa cac hang day
 void removeLine() {
     int i, j;
-
     for (i = H - 2; i > 0; i--) {
-        for (j = 1; j < W - 1; j++) {
-            if (board[i][j] == ' ') {
-                break;
-            }
-        }
-
-        if (j == W - 1) {
-            for (int ii = i; ii > 0; ii--) {
-                for (int jj = 0; jj < W; jj++) {
+        for (j = 0; j < W; j++)
+            if (board[i][j] == ' ') break;
+        if (j == W) {
+            for (int ii = i; ii > 0; ii--)
+                for (int jj = 0; jj < W; jj++)
                     board[ii][jj] = board[ii - 1][jj];
-                }
-            }
-
-            for (int jj = 1; jj < W - 1; jj++) {
-                board[1][jj] = ' ';
-            }
-
             i++;
             draw();
-            Sleep(200);
+            _sleep(200);
         }
     }
 }
 
 int main() {
-    srand(time(0));
+    srand(static_cast<unsigned int>(time(0)));
+
+    // SV4: Luu lai hinh dang goc truoc khi bat dau game.
+    memcpy(blocksOrig, blocks, sizeof(blocks));
 
     initBoard();
+    spawnBlock();
 
-    // Khoi tao khoi dau tien
-    x = 5;
-    y = 0;
-    b = baseBlocks[rand() % 7];
-
-    memcpy(cur, blocks[b], sizeof(cur));
-
-    while (true) {
+    while (1) {
         boardDelBlock();
 
         if (kbhit()) {
             char c = getch();
 
-            if ((c == 'a' || c == 'A') && canMove(-1, 0)) {
-                x--;
-            }
+            if ((c == 'a' || c == 'A') && canMove(-1, 0)) x--;
+            if ((c == 'd' || c == 'D') && canMove(1, 0)) x++;
+            if ((c == 'x' || c == 'X') && canMove(0, 1)) y++;
 
-            else if ((c == 'd' || c == 'D') && canMove(1, 0)) {
-                x++;
-            }
+            // SV4: W/w xoay block 90 do theo chieu kim dong ho.
+            if (c == 'w' || c == 'W') rotateBlock();
 
-            else if ((c == 'x' || c == 'X') && canMove(0, 1)) {
-                y++;
-            }
-
-            else if (c == 'w' || c == 'W') {
-                rotateBlock();
-            }
-
-            else if (c == 'q' || c == 'Q') {
-                break;
-            }
+            if (c == 'q' || c == 'Q') break;
         }
 
-        // Khoi tu dong roi xuong
-        if (canMove(0, 1)) {
-            y++;
-        }
-
+        if (canMove(0, 1)) y++;
         else {
-            // Neu khoi van nam ngoai vung hien thi thi Game Over
-            if (pieceAboveTop()) {
-                block2Board();
-                draw();
-                cout << "GAME OVER!" << endl;
-                break;
-            }
-
-            // Co dinh khoi vao bang
             block2Board();
-
-            // Xoa hang day
             removeLine();
-
-            // Sinh khoi moi
-            x = 5;
-            y = 0;
-            b = baseBlocks[rand() % 7];
-
-            memcpy(cur, blocks[b], sizeof(cur));
-
-            // Kiem tra Game Over
-            if (spawnBlocked()) {
-                draw();
-                cout << "GAME OVER!" << endl;
-                break;
-            }
+            spawnBlock();
         }
 
         block2Board();
         draw();
-
-        Sleep(500);
+        _sleep(500);
     }
 
     return 0;
 }
-
