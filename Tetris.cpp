@@ -11,6 +11,7 @@ using namespace std;
 char board[H][W] = {};
 
 int x, y, b;
+char cur[4][4];   // SV4: hình dạng của khối đang rơi (đã tính xoay)
 char blocks[][4][4] = {
         { { ' ','I',' ',' ' },
          { ' ','I',' ',' ' },
@@ -78,10 +79,19 @@ char blocks[][4][4] = {
          { ' ',' ',' ',' ' } }
 };
 
+// SV4: sinh khối mới, copy hình dạng vào cur
+void spawn(int idx) {
+    b = idx;
+    x = 5; y = 0;
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            cur[i][j] = blocks[b][i][j];
+}
+
 bool canMove(int dx, int dy) {
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++)
-            if (blocks[b][i][j] != ' ') {
+            if (cur[i][j] != ' ') {
                 int xt = x + j + dx;
                 int yt = y + i + dy;
                 if (xt < 1 || xt >= W - 1 || yt >= H - 1) return false;
@@ -90,17 +100,67 @@ bool canMove(int dx, int dy) {
     return true;
 }
 
+// ================= PHẦN XOAY KHỐI CỦA SV4 =================
+// Kích thước vùng xoay: I = 4, O = 0 (không cần xoay), các khối còn lại = 3
+int rotateSize() {
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            if (cur[i][j] != ' ') {
+                if (cur[i][j] == 'I') return 4;
+                if (cur[i][j] == 'O') return 0;
+                return 3;
+            }
+    return 0;
+}
+
+// Tạo bản xoay 90 độ theo chiều kim đồng hồ vào out; false nếu khối không xoay
+bool makeRotated(char out[4][4]) {
+    int n = rotateSize();
+    if (n == 0) return false;
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            out[i][j] = ' ';
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++)
+            out[i][j] = cur[n - 1 - j][i];
+    return true;
+}
+
+// Bản xoay hợp lệ khi không ra ngoài tường/đáy và không đè lên khối đã cố định.
+// Gọi sau boardDelBlock() nên board không còn chứa khối đang rơi.
+bool canRotate(char t[4][4]) {
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            if (t[i][j] != ' ') {
+                int xt = x + j;
+                int yt = y + i;
+                if (xt < 1 || xt >= W - 1 || yt < 0 || yt >= H - 1) return false;
+                if (board[yt][xt] != ' ') return false;
+            }
+    return true;
+}
+
+void rotateBlock() {
+    char t[4][4];
+    if (!makeRotated(t)) return;   // khối O: không xoay
+    if (!canRotate(t)) return;     // vị trí không hợp lệ: giữ nguyên
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            cur[i][j] = t[i][j];
+}
+// ==========================================================
+
 void block2Board() {
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++)
-            if (blocks[b][i][j] != ' ')
-                board[y + i][x + j] = blocks[b][i][j];
+            if (cur[i][j] != ' ')
+                board[y + i][x + j] = cur[i][j];
 }
 
 void boardDelBlock() {
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++)
-            if (blocks[b][i][j] != ' ')
+            if (cur[i][j] != ' ')
                 board[y + i][x + j] = ' ';
 }
 
@@ -183,8 +243,8 @@ int main()
     srand(time(0));
 
     int baseBlocks[7] = { 0, 2, 11, 12, 13, 14, 15 };
-    x = 5; y = 0; b = baseBlocks[rand() % 7];
     initBoard();
+    spawn(baseBlocks[rand() % 7]);
 
     int speed = 500;
     int timer = 0;
@@ -199,11 +259,13 @@ int main()
                 if (c == 75 && canMove(-1, 0)) x--;
                 if (c == 77 && canMove(1, 0)) x++;
                 if (c == 80 && canMove(0, 1)) y++;
+                if (c == 72) rotateBlock();                 // SV4: mũi tên lên = xoay
             }
             else {
                 if ((c == 'a' || c == 'A') && canMove(-1, 0)) x--;
                 if ((c == 'd' || c == 'D') && canMove(1, 0)) x++;
                 if ((c == 'x' || c == 'X' || c == 's' || c == 'S') && canMove(0, 1)) y++;
+                if (c == 'w' || c == 'W') rotateBlock();    // SV4: W = xoay
                 if (c == 'q' || c == 'Q') return 0;
             }
         }
@@ -217,7 +279,7 @@ int main()
                     speed -= 50 * lines;
                     if (speed < 150) speed = 150;        // SV5: giới hạn tốc độ tối đa
                 }
-                x = 5; y = 0; b = baseBlocks[rand() % 7];
+                spawn(baseBlocks[rand() % 7]);
             }
             timer = 0;
         }
@@ -228,4 +290,4 @@ int main()
         timer += 50;
     }
     return 0;
-} 
+}
