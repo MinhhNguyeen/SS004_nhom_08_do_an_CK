@@ -4,7 +4,6 @@
 #include <windows.h>
 #include <ctime>
 #include <string>
-#include <cstring>
 
 using namespace std;
 #define H 20
@@ -12,6 +11,7 @@ using namespace std;
 char board[H][W] = {};
 
 int x, y, b;
+char cur[4][4];   // SV4: hình dạng của khối đang rơi (đã tính xoay)
 char blocks[][4][4] = {
         { { ' ','I',' ',' ' },
          { ' ','I',' ',' ' },
@@ -79,10 +79,19 @@ char blocks[][4][4] = {
          { ' ',' ',' ',' ' } }
 };
 
+// SV4: sinh khối mới, copy hình dạng vào cur
+void spawn(int idx) {
+    b = idx;
+    x = 5; y = 0;
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            cur[i][j] = blocks[b][i][j];
+}
+
 bool canMove(int dx, int dy) {
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++)
-            if (blocks[b][i][j] != ' ') {
+            if (cur[i][j] != ' ') {
                 int xt = x + j + dx;
                 int yt = y + i + dy;
                 if (xt < 1 || xt >= W - 1 || yt >= H - 1) return false;
@@ -91,17 +100,67 @@ bool canMove(int dx, int dy) {
     return true;
 }
 
+// ================= PHẦN XOAY KHỐI CỦA SV4 =================
+// Kích thước vùng xoay: I = 4, O = 0 (không cần xoay), các khối còn lại = 3
+int rotateSize() {
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            if (cur[i][j] != ' ') {
+                if (cur[i][j] == 'I') return 4;
+                if (cur[i][j] == 'O') return 0;
+                return 3;
+            }
+    return 0;
+}
+
+// Tạo bản xoay 90 độ theo chiều kim đồng hồ vào out; false nếu khối không xoay
+bool makeRotated(char out[4][4]) {
+    int n = rotateSize();
+    if (n == 0) return false;
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            out[i][j] = ' ';
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++)
+            out[i][j] = cur[n - 1 - j][i];
+    return true;
+}
+
+// Bản xoay hợp lệ khi không ra ngoài tường/đáy và không đè lên khối đã cố định.
+// Gọi sau boardDelBlock() nên board không còn chứa khối đang rơi.
+bool canRotate(char t[4][4]) {
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            if (t[i][j] != ' ') {
+                int xt = x + j;
+                int yt = y + i;
+                if (xt < 1 || xt >= W - 1 || yt < 0 || yt >= H - 1) return false;
+                if (board[yt][xt] != ' ') return false;
+            }
+    return true;
+}
+
+void rotateBlock() {
+    char t[4][4];
+    if (!makeRotated(t)) return;   // khối O: không xoay
+    if (!canRotate(t)) return;     // vị trí không hợp lệ: giữ nguyên
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            cur[i][j] = t[i][j];
+}
+// ==========================================================
+
 void block2Board() {
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++)
-            if (blocks[b][i][j] != ' ')
-                board[y + i][x + j] = blocks[b][i][j];
+            if (cur[i][j] != ' ')
+                board[y + i][x + j] = cur[i][j];
 }
 
 void boardDelBlock() {
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++)
-            if (blocks[b][i][j] != ' ')
+            if (cur[i][j] != ' ')
                 board[y + i][x + j] = ' ';
 }
 
@@ -178,91 +237,14 @@ int removeLine() {
     return cleared;
 }
 
-
-// ================= PHẦN CHỨC NĂNG CỦA SV4 =================
-
-const int baseBlocks[7] = { 0, 2, 11, 12, 13, 14, 15 };
-char originalBlocks[16][4][4];
-
-static_assert(sizeof(blocks) / sizeof(blocks[0]) == 16,
-              "blocks phai co dung 16 phan tu");
-
-// Kiểm tra vị trí của hình dạng khối, dùng khi xoay khối.
-bool canPlaceBlock(const char shape[4][4]) {
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++)
-            if (shape[i][j] != ' ') {
-                int boardX = x + j;
-                int boardY = y + i;
-
-                if (boardX < 1 || boardX >= W - 1 ||
-                    boardY < 0 || boardY >= H - 1)
-                    return false;
-
-                if (board[boardY][boardX] != ' ')
-                    return false;
-            }
-    return true;
-}
-
-// Xoay khối 90 độ theo chiều kim đồng hồ.
-// Chỉ thay đổi khối hiện tại nếu vị trí sau khi xoay hợp lệ.
-bool rotateBlock() {
-    char rotated[4][4] = {};
-
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++)
-            rotated[j][3 - i] = blocks[b][i][j];
-
-    if (!canPlaceBlock(rotated))
-        return false;
-
-    memcpy(blocks[b], rotated, sizeof(rotated));
-    return true;
-}
-
-// Kiểm tra khối mới có thể xuất hiện tại vị trí bắt đầu hay không.
-bool canSpawnBlock(int blockIndex) {
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++)
-            if (blocks[blockIndex][i][j] != ' ') {
-                int boardX = x + j;
-                int boardY = y + i;
-
-                if (boardX < 1 || boardX >= W - 1 ||
-                    boardY < 0 || boardY >= H - 1)
-                    return false;
-
-                if (board[boardY][boardX] != ' ')
-                    return false;
-            }
-    return true;
-}
-
-// Tạo khối mới và khôi phục hình dạng gốc trước khi kiểm tra.
-bool spawnBlock() {
-    x = 5;
-    y = 0;
-    b = baseBlocks[rand() % 7];
-
-    memcpy(blocks[b], originalBlocks[b], sizeof(blocks[b]));
-    return canSpawnBlock(b);
-}
-
-// ====================== HẾT PHẦN SV4 ======================
-
 int main()
 {
     setupConsole();
     srand(time(0));
 
+    int baseBlocks[7] = { 0, 2, 11, 12, 13, 14, 15 };
     initBoard();
-    memcpy(originalBlocks, blocks, sizeof(blocks));
-    if (!spawnBlock()) {
-        draw();
-        cout << "\nGAME OVER: Khong the tao block dau tien.\n";
-        return 0;
-    }
+    spawn(baseBlocks[rand() % 7]);
 
     int speed = 500;
     int timer = 0;
@@ -277,12 +259,13 @@ int main()
                 if (c == 75 && canMove(-1, 0)) x--;
                 if (c == 77 && canMove(1, 0)) x++;
                 if (c == 80 && canMove(0, 1)) y++;
+                if (c == 72) rotateBlock();                 // SV4: mũi tên lên = xoay
             }
             else {
                 if ((c == 'a' || c == 'A') && canMove(-1, 0)) x--;
                 if ((c == 'd' || c == 'D') && canMove(1, 0)) x++;
                 if ((c == 'x' || c == 'X' || c == 's' || c == 'S') && canMove(0, 1)) y++;
-                if (c == 'w' || c == 'W') rotateBlock();
+                if (c == 'w' || c == 'W') rotateBlock();    // SV4: W = xoay
                 if (c == 'q' || c == 'Q') return 0;
             }
         }
@@ -292,15 +275,11 @@ int main()
             else {
                 block2Board();
                 int lines = removeLine();                // SV5
-                if (lines > 0) {                         // SV5: xóa càng nhiều hàng càng nhanh
+                if (lines > 0 && speed > 150) {          // SV5: chỉ giảm khi có xóa hàng và chưa chạm tốc độ tối đa
                     speed -= 50 * lines;
-                    if (speed < 100) speed = 100;        // SV5: giới hạn tốc độ tối đa
+                    if (speed < 150) speed = 150;        // SV5: giới hạn tốc độ tối đa
                 }
-                if (!spawnBlock()) {
-                    draw();
-                    cout << "\nGAME OVER: Khong con vi tri xuat hien block.\n";
-                    return 0;
-                }
+                spawn(baseBlocks[rand() % 7]);
             }
             timer = 0;
         }
@@ -311,4 +290,4 @@ int main()
         timer += 50;
     }
     return 0;
-} 
+}
